@@ -716,10 +716,12 @@ def find_unity_installs():
     
     install_paths = [x for x in os.listdir(app_dir) if x.startswith('Unity')]
     for install_name in install_paths:
-        plist_path = os.path.join(app_dir, install_name, 'Unity.app', 'Contents', 'Info.plist')
+        plist_path = os.path.join(app_dir, install_name, install_name+'.app', 'Contents', 'Info.plist')
         if not os.path.isfile(plist_path):
-            print "WARNING: No Info.plist found at '%s'" % plist_path
-            continue
+            plist_path = os.path.join(app_dir, install_name, 'Unity.app', 'Contents', 'Info.plist')
+            if not os.path.isfile(plist_path):
+                print "WARNING: No Info.plist found at '%s'" % plist_path
+                continue
         
         installed_version = subprocess.check_output(['defaults', 'read', plist_path, 'CFBundleVersion']).strip()
         
