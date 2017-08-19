@@ -769,31 +769,23 @@ def install(version, path, config, selected, installs):
         error('Some packages to be installed have not been downloaded')
     
     if not version in installs and not 'Unity' in selected:
-            error('Installing only components but no matching Unity %s installation found' % version)
+        error('Installing only components but no matching Unity %s installation found' % version)
     
     install_path = os.path.join(args.volume, 'Applications', 'Unity')
     
-    moved_unity_to = None
     if version in installs and os.path.basename(installs[version]) == 'Unity':
         # The 'Unity' folder already contains the target version
         pass
     elif os.path.isdir(install_path):
-        # There's another version in the 'Unity' folder, move it to 'Unity VERSION'
-        lookup = [vers for vers,name in installs.iteritems() if os.path.basename(name) == 'Unity']
-        if len(lookup) != 1:
-            error('Directory "%s" not recognized as Unity installation.' % install_path)
-        
-        moved_unity_to = os.path.join(args.volume, 'Applications', 'Unity %s' % lookup[0])
-        if os.path.isdir(moved_unity_to):
-            error('Duplicate Unity installs in "%s" and "%s"' % (install_path, moved_unity_to))
-        
-        os.rename(install_path, moved_unity_to)
+        # There's another version in the 'Unity' folder, error!
+        error('Directory "%s" already contains different Unity installation.' % install_path)
     
     # If a matching version exists elsewhere, move it to 'Unity'
     moved_unity_from = None
     if version in installs and os.path.basename(installs[version]) != 'Unity':
         moved_unity_from = installs[version]
         os.rename(moved_unity_from, install_path)
+        os.rename(os.path.join(install_path, 'Unity%s.app' % version), os.path.join(install_path, 'Unity.app'))
     
     install_error = None
     for pkg in selected:
@@ -802,9 +794,9 @@ def install(version, path, config, selected, installs):
         
         print 'Installing %s...' % filename
         
-        command = ['/usr/sbin/installer', '-pkg', package, '-target', args.volume, '-verbose'];
+        command = ['/usr/sbin/installer', '-pkg', package, '-target', args.volume, '-verbose']
         if not is_root:
-            command = ['/usr/bin/sudo', '-S'] + command;
+            command = ['/usr/bin/sudo', '-S'] + command
         
         p = subprocess.Popen(command, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
         
@@ -820,14 +812,11 @@ def install(version, path, config, selected, installs):
     # Revert moving around Unity installations
     if moved_unity_from:
         os.rename(install_path, moved_unity_from)
-    
-    if moved_unity_to:
-        if os.path.isdir(install_path):
-            # If there previously was a 'Unity' folder, move the newly
-            # installed Unity to 'Unity VERSION'
-            new_install_path = os.path.join(args.volume, 'Applications', 'Unity %s' % version)
-            os.rename(install_path, new_install_path)
-        os.rename(moved_unity_to, install_path)
+    else:
+        # we always want to rename after completed installation
+        os.rename(os.path.join(install_path, 'Unity.app'), os.path.join(install_path, 'Unity%s.app' % version))
+        new_install_path = os.path.join(args.volume, 'Applications', 'Unity%s' % version)
+        os.rename(install_path, new_install_path)
     
     if install_error:
         error('Installation of package "%s" failed: %s' % install_error)
