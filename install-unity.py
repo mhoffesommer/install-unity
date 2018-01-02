@@ -46,7 +46,7 @@ import ssl
 
 # ---- CONFIGURATION ----
 
-VERSION = '0.1.0'
+VERSION = '0.1.1'
 
 # URL to look for main Unity releases
 UNITY_DOWNLOADS = 'https://unity3d.com/get-unity/download/archive'
@@ -707,7 +707,7 @@ def download(version, path, config, selected):
 
 # ---- INSTALL ----
 
-def find_unity_installs():
+def find_unity_installs(silent = False):
     installs = {}
     
     app_dir = os.path.join(args.volume, 'Applications')
@@ -727,19 +727,20 @@ def find_unity_installs():
         
         installs[installed_version] = os.path.join(app_dir, install_name)
     
-    if len(installs) == 0:
-        print "No existing Unity installations found."
-    else:
-        print 'Found %d existing Unity installations:' % len(installs)
-        for install in installs:
-            print '- %s (%s)' % (install, installs[install])
-    print ''
+    if not silent:
+        if len(installs) == 0:
+            print "No existing Unity installations found."
+        else:
+            print 'Found %d existing Unity installations:' % len(installs)
+            for install in installs:
+                print '- %s (%s)' % (install, installs[install])
+        print ''
     
     return installs
 
 def check_root():
     global pwd
-    if not is_root and (not args.operation or args.operation == 'install'):
+    if not pwd and not is_root and (not args.operation or args.operation == 'install'):
         # Get the root password early so we don't need to ask for it
         # after the downloads potentially took a long time to finish.
         # Also, just calling sudo might expire when the install takes
@@ -861,28 +862,25 @@ def main():
     # macOS has deprecated OpenSSL in favor of its own crypto libraries, which
     # means macOS will be stuck at OpenSSL 0.9.8, which doesn't support TLS1.2.
     match = re.match('OpenSSL (\d+).(\d+).(\d+)(\w+)', ssl.OPENSSL_VERSION)
-    if not match:
-        print 'ERROR: Could not parse OpenSSL version: %s' % version
-        sys.exit(1)
-
-    parts = match.groups()
-    if (int(parts[0]) < 1 or int(parts[1]) < 0 or int(parts[2]) < 1):
-        print (
-            'ERROR: Your Python\'s OpenSSL library is outdated (%s).\n'
-            'At least OpenSSL version 1.0.1g is required.\n'
-            'You need to install a new version of Python 2 with an updated OpenSSL library.\n'
-            ) % (ssl.OPENSSL_VERSION)
-        
-        brew_check = os.system('brew help &> /dev/null')
-        if brew_check != 0:
-            print 'Either download it from www.python.org or install it using a package manager like Homebrew.'
-        else:
+    if match:
+        parts = match.groups()
+        if (int(parts[0]) < 1 or int(parts[1]) < 0 or int(parts[2]) < 1):
             print (
-                'You can install python with Homebrew using the following command:\n'
-                'brew install python'
-            )
+                'ERROR: Your Python\'s OpenSSL library is outdated (%s).\n'
+                'At least OpenSSL version 1.0.1g is required.\n'
+                'You need to install a new version of Python 2 with an updated OpenSSL library.\n'
+                ) % (ssl.OPENSSL_VERSION)
+            
+            brew_check = os.system('brew help &> /dev/null')
+            if brew_check != 0:
+                print 'Either download it from www.python.org or install it using a package manager like Homebrew.'
+            else:
+                print (
+                    'You can install python with Homebrew using the following command:\n'
+                    'brew install python'
+                )
 
-        sys.exit(1)
+            sys.exit(1)
 
     # Make sure data_dir exists
     if not os.path.isdir(data_path):
@@ -1034,6 +1032,7 @@ def main():
                 
                 if operation == 'install' or not operation:
                     install(version, path, config, selected, installs)
+                    installs = find_unity_installs(True)
                     
                     if not args.keep and not operation:
                         clean_up(path)
